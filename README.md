@@ -102,6 +102,50 @@ doubleclick.net              RuleSet(ads)                          REJECT       
 baidu.com                    DomainSuffix(baidu.com)               DIRECT          PASS
 ```
 
+## 验证出口 IP（以及为什么 FlClash 面板会骗你）
+
+转换完成后，**不要用 FlClash 仪表盘上的「网络检测」卡片判断出口**。它读的是本地缓存表，不会自动刷新：
+
+```
+%APPDATA%\com.follow\clash\database.sqlite  →  ip_qualities（ip / quality / checked_at）
+```
+
+卡片直接显示这条缓存。所以经常出现「规则早就改好了，面板还挂着几小时前的 China Mobile」。想确认缓存有多旧：
+
+```python
+import sqlite3, datetime
+p = r"C:/Users/<用户名>/AppData/Roaming/com.follow/clash/database.sqlite"
+for ip, q, ts in sqlite3.connect(p).execute("select ip, quality, checked_at from ip_qualities"):
+    print(ip, datetime.datetime.fromtimestamp(ts).strftime("%m-%d %H:%M:%S"), q[:90])
+```
+
+如果 `checked_at` 是很久以前，点一下卡片刷新即可。如果刷新后仍是本地运营商，说明该卡片的请求本身走了直连（客户端为避免回环会把自身进程排除在 TUN 外），它不适合做判据。
+
+**正确的验证方式**——curl 三条路径交叉对比：
+
+```bash
+# ① 走代理端口
+curl -s -x http://127.0.0.1:7890 https://ipinfo.io/json
+
+# ② 纯 TUN（不加 -x），最接近普通程序的真实路径
+curl -s https://ipinfo.io/json
+
+# ③ 关掉 FlClash 后直连，作为对照组
+curl -s https://ipinfo.io/json
+```
+
+判读：①② 应返回**同一个海外 IP**，③ 返回本地运营商 IP。
+
+| 现象 | 结论 |
+|---|---|
+| ①② 都是海外 IP | 分流正常 |
+| ① 海外、② 本地 | TUN 没接管或 `auto-route` 失效，不是规则问题 |
+| ①② 都是本地 | 规则没生效，检查 `IP_CHECK_SUFFIX` 是否写进了 `rules:` |
+
+或者直接用浏览器打开 `https://ipinfo.io` / `https://ip.sb` / `https://api.ipify.org` / `https://ifconfig.co`。
+
+> 判断直连组是否真的直连，看**耗时**而不是状态码：`www.taobao.com` 约 83ms、`cdnjs.cloudflare.com` 约 284ms，都是本地往返量级。若被误代理到美国节点，至少 200ms 以上。
+
 ## 作为 AI Skill 使用
 
 本仓库同时是一份 Claude / WorkBuddy 技能包。把整个目录放进 `~/.workbuddy-ai/skills/` 后，可以直接说"用 flclash-rule-converter 把白名单去广告规则转成 FLClash 配置"，四步流程会自动执行。
@@ -114,6 +158,7 @@ baidu.com                    DomainSuffix(baidu.com)               DIRECT       
 - 策略组名含 Emoji 时规则必须加双引号，否则 `\U0001F680` 被当字面量
 - 测试时用全文正则关 TUN 会误关 `dns.enable` / `sniffer.enable`，导致测的不是同一份配置
 - PowerShell 函数用 `Write-Output` 打印进度会污染返回值，让失败检查永远不触发
+- FlClash 的 `ip_qualities` 缓存导致面板长期显示旧 IP（见上一节）
 
 ## 免责声明
 

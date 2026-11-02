@@ -71,6 +71,7 @@ python scripts/test_config.py --config <输出FlClash配置.yaml> --env-dir "$en
 2. **注入预置环境**：将第三步准备好的 `geoip.metadb` 和 `ads` 等全部本地 `rule-providers` 规则集复制到运行目录，实现断代理状态下秒级加载。
 3. **静态校验与真实分流探测**：启动内核，校验所有规则集 `ruleCount > 0`，随后对目标域名发起真实连接探测，核对实际命中的规则与出口：
    - **必须走代理**：`chatgpt.com`、`api.openai.com`、`gemini.google.com`、`antigravity.google`、`muse.ai`、`www.meta.ai`、`www.gstatic.com`、`lh3.googleusercontent.com`
+   - **IP 检测站必须走代理**：`iplocate.io`、`ipinfo.io`（用于验证出口 IP，若落到 `GEOIP,CN` 会被判直连）
    - **必须走直连**：`baidu.com`、`www.taobao.com`、`ieee.org`（白名单域名）
    - **必须被拦截**：`doubleclick.net`、`adservice.google.com` 必须命中 `REJECT`（验证去广告真的生效，而不只是规则存在）
 
@@ -83,3 +84,13 @@ python scripts/test_config.py --config <输出FlClash配置.yaml> --env-dir "$en
 ## 交付
 
 测试通过后，向用户展示实测分流结果表与最终生成的 FlClash 配置文件路径，提醒用户可以重新打开 FlClash 并导入该配置使用。
+
+### ⚠️ 交付时必说的一句话：不要用 FlClash 仪表盘判断出口
+
+FlClash 仪表盘上的「网络检测」卡片读的是本地缓存表（`%APPDATA%\com.follow\clash\database.sqlite` 的 `ip_qualities`），**不会自动刷新**，而且可能测的是直连出口。用户看到它显示本地运营商（如 China Mobile / AS24445）时，极易误判为配置失败。
+
+正确验证方式（任选其一）：
+- **浏览器**打开 `https://ipinfo.io` 或 `https://ip.sb`；
+- **curl 交叉验证**：`curl -x http://127.0.0.1:7890 https://ipinfo.io/json`（走代理端口）与 `curl https://ipinfo.io/json`（纯 TUN）应返回**同一个海外 IP**。
+
+如果用户坚持面板显示不对，先让他点卡片刷新；详细排查流程见 `references/pitfalls.md` 第六节。

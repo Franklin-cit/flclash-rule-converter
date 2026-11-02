@@ -100,3 +100,104 @@
      - 如果某个应走代理的域名显示命中了 `RuleSet(cn-domain)` 或 `GeoIP(CN)` 走了 `DIRECT`，说明该域名没有被前排的 AI 规则或代理规则覆盖，需将其后缀补充进 `convert.py` 的 `AI_CORE_SUFFIX` 或 `AI_ECO_SUFFIX` 中；
      - 如果某个应走直连的域名命中了 `Match` 走了代理，说明该域名不在 SR 白名单或 `cn-domain` 中，按需补充到直连白名单即可。
    - 修改 `convert.py` 后重新生成 YAML，再次运行 `test_config.py` 验证，直至所有测试域名全部显示 `PASS`。
+
+---
+
+## 六、 IP 检测站与「面板显示中国移动」排查
+
+### 1. 为什么 IP 检测站必须显式写成代理规则
+
+`iplocate.io`、`ipinfo.io`、`ip.sb`、`ping0.cc` 这类 IP 回显站，在国内普遍有 CDN 节点。一旦它们解析到国内 IP，就会在 `GEOIP,CN,DIRECT` 这一层被判定为国内流量走直连，于是**回显出来的是本机宽带运营商，而不是代理出口**。
+
+所以 `convert.py` 内置了 `IP_CHECK_SUFFIX`（30 个域名），单独作为第 5 层，位置在「Google/Meta 生态」之后、「SR 直连白名单」之前。放在这个位置的原因：
+- 必须在 `GEOIP,CN` 之前，否则会被国内分流抢走；
+- 必须在 SR 直连白名单之前，因为部分检测站可能出现在白名单里；
+- 但必须排在去广告 `REJECT` 之后，避免破坏拦截逻辑。
+
+**关键取舍：绝不能整段加 `cloudflare.com`。**
+`cdnjs.cloudflare.com` 是公共 JS CDN（jQuery 等静态库），把 `cloudflare.com` 加进代理层会导致大量网站静态资源被绕道代理。同理：
+- 只加 `checkip.amazonaws.com`，**不要**加 `amazonaws.com`；
+- 只加 `whatismyip.akamai.com`，**不要**加 `akamai.com`；
+- 只加 `ipinfo.io`，不要加 `ipinfo.com`（无关站点）。
+
+### 2. 规则加完之后 FlClash 面板仍显示「China Mobile」的三个原因
+
+**按发生概率排序，先查 a，90% 是它。**
+
+#### a) FlClash 的检测结果是**缓存**，不会自动刷新（最常见）
+
+FlClash 把网络检测结果持久化在：
+
+```
+%APPDATA%\com.follow\clash\database.sqlite   →   表 ip_qualities（列：ip / quality / checked_at）
+```
+
+仪表盘上那张「网络检测」卡片直接读这条缓存，**不点刷新就一直显示旧值**。所以会出现「规则早就改好了，面板还挂着几小时前的中国移动」。
+
+查法（FlClash 运行中也可以只读打开）：
+
+```python
+import sqlite3, datetime
+p = r"C:/Users/<用户名>/AppData/Roaming/com.follow/clash/database.sqlite"
+c = sqlite3.connect(p)
+for ip, q, ts in c.execute("select ip, quality, checked_at from ip_qualities"):
+    print(ip, datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S"), q[:100])
+```
+
+判读：
+- 如果 `checked_at` 距今已经很久（几十分钟到几小时），**这就是陈旧缓存**，点卡片刷新或重启 FlClash 即可；
+- 表里同时存在「代理 IP」和「本地 IP」两条记录是正常的，FlClash 会分别检测直连出口和代理出口，卡片显示哪条取决于刷新时序。
+
+#### b) 看错了卡片
+
+FlClash 仪表盘有两个容易混淆的组件（配置项 `dashboardWidgets`）：
+- `networkDetection` —— 网络检测，测的是**当前网络环境**；
+- `intranetIp` —— 内网 IP，显示局域网地址。
+
+两者都不适合用来判断代理出口。
+
+#### c) 检测请求本身走了直连
+
+为避免「内核连节点 → 又被自己抓包 → 死循环」，部分客户端会把自身进程排除在 TUN 之外。此时该卡片的请求根本不过代理，永远显示本地运营商。
+
+**结论：FlClash 面板不能作为分流是否生效的判据。** 见下面的验证方法。
+
+### 3. 验证代理出口的正确方法（三种交叉验证）
+
+**方法一：浏览器（最贴近真实使用）**
+打开 `https://ipinfo.io`、`https://ip.sb`、`https://api.ipify.org`、`https://ifconfig.co`，应当显示节点所在国家的 IP。
+
+**方法二：curl 三种路径交叉验证（推荐，可留证据）**
+
+```bash
+# ① 走代理端口
+curl -s -x http://127.0.0.1:7890 https://ipinfo.io/json
+
+# ② 纯 TUN（不加 -x）—— 这条最接近普通程序的真实路径，最关键
+curl -s https://ipinfo.io/json
+
+# ③ 关掉 FlClash 后直连 —— 作为对照，应当返回本地运营商
+curl -s https://ipinfo.io/json
+```
+
+判读标准：
+- ①② 必须返回**同一个海外 IP**（说明规则与 TUN 都正常）；
+- ③ 返回本地运营商 IP（说明对照组有效）；
+- 如果 ① 是海外而 ② 是本地运营商 → TUN 没接管或 `auto-route` 失效，不是规则问题；
+- 如果 ①② 都是本地运营商 → 规则没生效，回到第二节检查 `IP_CHECK_SUFFIX` 是否真的写进了 `rules:`。
+
+**方法三：离线规则模拟（不启内核、不联网）**
+直接解析 `rules:` 段做首条匹配模拟，适合在没网或不想动代理时快速验证规则顺序。
+
+> ⚠️ 写模拟脚本时的坑：YAML 里策略组名是双引号内的转义序列（`"DOMAIN-SUFFIX,iplocate.io,\U0001F680 节点选择"`），原始文本是**字面反斜杠 + U**，必须先把 `\U0001F680` 还原成真实 emoji 再比较，否则会误报全部 `FAIL`。
+
+### 4. 判断「直连组是否真的直连」用耗时，别用状态码
+
+代理端口返回 `HTTP=200` 不代表走了代理。用响应耗时判断更可靠：
+
+| 域名 | 期望 | 实测耗时 | 说明 |
+|---|---|---|---|
+| `www.taobao.com` | DIRECT | ~83ms | 本地往返量级 |
+| `cdnjs.cloudflare.com` | DIRECT | ~284ms | 仍是本地量级 |
+
+若这两个域名被误代理到美国节点，耗时至少 200ms 以上（通常 300~800ms）。**百毫秒内返回 = 本地直连**。
