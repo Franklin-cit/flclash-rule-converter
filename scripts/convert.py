@@ -36,6 +36,20 @@ AI_ECO_SUFFIX = [
     "facebook.com", "fb.com", "cdninstagram.com", "instagram.com",
 ]
 
+# IP 检测站：必须显式走代理。
+# 否则它们会落到 GEOIP,CN 兜底，一旦解析到国内 CDN 节点就被判直连，
+# 检测结果永远显示本地运营商（典型现象：面板显示 China Mobile / AS24445）。
+# 注意：不要加 cloudflare.com —— cdnjs.cloudflare.com 是公共 JS CDN，会被误代理。
+IP_CHECK_SUFFIX = [
+    "iplocate.io", "ipinfo.io", "ip.sb", "ping0.cc",
+    "ip-api.com", "ipapi.co", "ipapi.is", "ipapi.com",
+    "ipwho.is", "ipwhois.app", "ipdata.co", "ipgeolocation.io",
+    "ifconfig.me", "icanhazip.com", "whatismyipaddress.com",
+    "whatismyip.akamai.com", "checkip.amazonaws.com",
+    "ip.me", "ip.gs", "ipcheck.ing", "ip.skk.moe",
+    "db-ip.com", "myip.com",
+]
+
 LAN_RULES = [
     "DOMAIN,localhost,DIRECT",
     "DOMAIN-SUFFIX,localhost,DIRECT",
@@ -299,23 +313,28 @@ def build(args):
             add(f"DOMAIN-SUFFIX,{d.strip()},{g}")
 
     R.append("")
-    cmt(f"===== 5. SR 直连白名单（{len(direct)} 条）=====")
+    cmt(f"===== 5. IP 检测站（{len(IP_CHECK_SUFFIX)} 条，强制走代理）=====")
+    for d in IP_CHECK_SUFFIX:
+        add(f"DOMAIN-SUFFIX,{d.strip()},{g}")
+
+    R.append("")
+    cmt(f"===== 6. SR 直连白名单（{len(direct)} 条）=====")
     for r in direct:
         add(to_clash(r, g))
 
     R.append("")
-    cmt(f"===== 6. SR 代理列表（{len(proxy)} 条）=====")
+    cmt(f"===== 7. SR 代理列表（{len(proxy)} 条）=====")
     for r in proxy:
         add(to_clash(r, g))
 
     if proxy_sets:
         R.append("")
-        cmt("===== 7. 订阅代理规则集兜底 =====")
+        cmt("===== 8. 订阅代理规则集兜底 =====")
         for r in proxy_sets:
             add(r)
 
     R.append("")
-    cmt("===== 8. 国内分流（CN 直连）=====")
+    cmt("===== 9. 国内分流（CN 直连）=====")
     add("DOMAIN-SUFFIX,cn,DIRECT")
     for r in cn_sets:
         add(r)

@@ -7,6 +7,9 @@ echo ============================================
 echo   flclash-rule-converter  发布脚本
 echo ============================================
 echo.
+echo 注意: 本脚本是单向同步(仓库目录 -^> 技能目录)
+echo       要改文件请改仓库目录, 改技能目录会被覆盖
+echo.
 echo [1/3] 同步到 WorkBuddy 技能目录
 if exist "%SKILL%\SKILL.md" goto sync
 echo    技能目录不存在，跳过同步

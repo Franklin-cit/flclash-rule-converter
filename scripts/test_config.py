@@ -23,6 +23,7 @@ DEFAULT_PROXY = [
     "chatgpt.com", "api.openai.com", "gemini.google.com",
     "antigravity.google", "muse.ai", "www.meta.ai",
     "www.gstatic.com", "lh3.googleusercontent.com",
+    "iplocate.io", "ipinfo.io",
 ]
 DEFAULT_DIRECT = ["baidu.com", "www.taobao.com", "ieee.org"]
 DEFAULT_REJECT = ["doubleclick.net", "adservice.google.com"]

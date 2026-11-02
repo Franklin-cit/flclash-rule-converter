@@ -44,7 +44,7 @@ python scripts/convert.py `
    - **Muse**：`muse.ai`、`meta.ai`、`meta.com`
    - **Google / Meta 公共静态与 API 域名**：`googleapis.com`、`gstatic.com`、`googleusercontent.com` 等排在广告拦截之后、直连白名单之前，既保证走代理又不破坏去广告。
 3. **规则优先级顺序**：
-   `局域网直连 (LAN / private)` → `核心 AI 专属域名强制代理` → `SR 去广告拦截 (Reject)` → `Google/Meta 公共域名代理` → `SR 直连白名单 (Direct)` → `SR 代理列表 (Proxy)` → `订阅规则集兜底 (含 ads 等)` → `国内分流 (cn / GEOIP,CN)` → `MATCH,<主代理策略组>`
+   `局域网直连 (LAN / private)` → `核心 AI 专属域名强制代理` → `SR 去广告拦截 (Reject)` → `Google/Meta 公共域名代理` → `IP 检测站代理 (ipinfo.io / ip.sb / iplocate.io 等)` → `SR 直连白名单 (Direct)` → `SR 代理列表 (Proxy)` → `订阅规则集兜底 (含 ads 等)` → `国内分流 (cn / GEOIP,CN)` → `MATCH,<主代理策略组>`
 
 ### 第三步：打开代理准备好所有环境（内核、geoip、ads 等规则集）
 
