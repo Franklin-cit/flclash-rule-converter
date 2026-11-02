@@ -103,6 +103,23 @@ baidu.com                    DomainSuffix(baidu.com)               DIRECT       
 
 本仓库同时是一份 Claude / WorkBuddy 技能包。把整个目录放进 `~/.workbuddy-ai/skills/` 后，可以直接说"用 flclash-rule-converter 把白名单去广告规则转成 FLClash 配置"，四步流程会自动执行。
 
+## 维护与发布
+
+本仓库同时会被 WorkBuddy 当作技能加载，所以本地存在**两份副本**：
+
+| 位置 | 用途 |
+|---|---|
+| `~/.workbuddy-ai/skills/flclash-rule-converter/` | WorkBuddy 实际加载运行的那份 |
+| 本仓库目录 | 与 GitHub 同步的那份 |
+
+改完文件后双击 `publish.bat`，它会依次完成：**同步到技能目录 → 提交 → 推送**。也可以在命令行里带上说明：
+
+```cmd
+publish.bat "fix: 修正 gstatic 被误判为直连"
+```
+
+> `publish.bat` 必须保持 CRLF 换行（`.gitattributes` 已锁定），否则 cmd 解析会出错。
+
 ## 常见坑
 
 `references/pitfalls.md` 记录了实战踩过的坑，包括：
