@@ -1,0 +1,8 @@
+# 统一换行符，避免 Windows/Linux 协作时整文件 diff
+* text=auto
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.ps1  text eol=crlf
+*.yaml text eol=lf
+*.yml  text eol=lf

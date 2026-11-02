@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 生成的配置与原始订阅：含节点服务器地址、密码、UUID，绝不能提交
+PPVPN*.yaml
+*_converted.yaml
+*_out.yaml
+runtime.yaml
+sr_*.conf
+
+# 测试环境与失败现场
+flclash_test_env/
+flclash_last_failed/
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
