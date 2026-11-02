@@ -119,7 +119,9 @@ for ip, q, ts in sqlite3.connect(p).execute("select ip, quality, checked_at from
     print(ip, datetime.datetime.fromtimestamp(ts).strftime("%m-%d %H:%M:%S"), q[:90])
 ```
 
-如果 `checked_at` 是很久以前，点一下卡片刷新即可。如果刷新后仍是本地运营商，说明该卡片的请求本身走了直连（客户端为避免回环会把自身进程排除在 TUN 外），它不适合做判据。
+如果 `checked_at` 是很久以前，点一下卡片刷新即可。如果刷新后仍是本地运营商，说明该卡片的请求本身走了直连（客户端为避免回环会把自身进程排除在 TUN 外），它不适合做判据——**这种情况加多少条规则都没用**。
+
+实测佐证：同一台机器间隔 77 秒，卡片自己查 `iplocate.io` 拿到 `120.219.76.6`（China Mobile），而 `curl` 查同一个域名拿到 `209.107.75.136`（NTT America）。同域名、不同进程、结果不同，即证明客户端自身流量不经过规则引擎。想让仪表盘不误导，直接在仪表盘设置里移除这个「网络检测」组件。
 
 **正确的验证方式**——curl 三条路径交叉对比：
 

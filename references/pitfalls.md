@@ -156,11 +156,36 @@ FlClash 仪表盘有两个容易混淆的组件（配置项 `dashboardWidgets`�
 
 两者都不适合用来判断代理出口。
 
-#### c) 检测请求本身走了直连
+#### c) 检测请求本身走了直连（无法用规则修复）
 
-为避免「内核连节点 → 又被自己抓包 → 死循环」，部分客户端会把自身进程排除在 TUN 之外。此时该卡片的请求根本不过代理，永远显示本地运营商。
+为避免「内核连节点 → 又被自己抓包 → 死循环」，客户端会把**自身进程**排除在 TUN 之外。于是这个卡片发出的请求根本不进规则引擎，无论你怎么加 `IP_CHECK_SUFFIX`，它拿到的永远是物理网卡的出口。
 
-**结论：仪表盘的「网络检测」卡片不能作为分流判据**，但**「连接」列表是可信的**——它显示的是内核真实匹配结果（`直连` / 节点名），配合下面第 5 条一起看。
+**一条命令就能证实**（对比时间戳，最有说服力）：
+
+```python
+# ① 看卡片最后一次检测是什么时候、拿到了什么
+import sqlite3, datetime, json
+p = r"C:/Users/<用户名>/AppData/Roaming/com.follow/clash/database.sqlite"
+for ip, q, ts in sqlite3.connect(p).execute("select ip, quality, checked_at from ip_qualities"):
+    d = json.loads(q)
+    print(datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S"), ip, d.get("source"), d.get("organization"))
+```
+
+```bash
+# ② 紧接着用 curl 查同一个域名（新进程，走 TUN）
+curl -s https://iplocate.io/api/lookup/
+```
+
+实测结果（同一台机器，间隔 77 秒）：
+
+| 时间 | 发起方 | 域名 | 结果 |
+|---|---|---|---|
+| 17:57:36 | FlClash 卡片 | iplocate.io | `120.219.76.6` / AS24445 China Mobile |
+| 17:58:53 | `curl` | iplocate.io | `209.107.75.136` / AS2914 NTT America |
+
+**同域名、同机器、不同进程 → 结果不同**，即证明客户端自身进程不经过规则引擎。这不是配置错误，加多少条规则都改不了。
+
+**结论：仪表盘的「网络检测」卡片不能作为分流判据**，但**「连接」列表是可信的**——它显示的是内核真实匹配结果（`直连` / 节点名），配合下面第 5 条一起看。想让仪表盘不再误导，去仪表盘设置里把这个 `networkDetection` 组件移除即可。
 
 ### 3. 验证代理出口的正确方法（三种交叉验证）
 
