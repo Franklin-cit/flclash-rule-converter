@@ -144,6 +144,8 @@ curl -s https://ipinfo.io/json
 
 或者直接用浏览器打开 `https://ipinfo.io` / `https://ip.sb` / `https://api.ipify.org` / `https://ifconfig.co`。
 
+> **浏览器里看到的可能是假象。** 浏览器有连接池，改配置前建立的 keep-alive 连接不会因为内核重载而重新分流，于是连接列表里那条 `msedge.exe → ipinfo.io:443` 会一直显示「直连」，关掉标签页重开就正常了。改完配置请 `Ctrl+Shift+R` 强制刷新，或去 `edge://net-internals/#sockets` 点 `Flush socket pools`。想确认「此刻」规则是否生效，用 curl 起新进程测，别用已经开着的页面。
+
 > 判断直连组是否真的直连，看**耗时**而不是状态码：`www.taobao.com` 约 83ms、`cdnjs.cloudflare.com` 约 284ms，都是本地往返量级。若被误代理到美国节点，至少 200ms 以上。
 
 ## 作为 AI Skill 使用
