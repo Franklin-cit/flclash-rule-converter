@@ -71,14 +71,17 @@ python scripts/test_config.py --config <输出配置.yaml> --env-dir "$env:TEMP\
 2. 核心 AI 域名             PROXY    ← chatgpt / openai / gemini / antigravity / muse
 3. 广告拦截（5.2 万条）      REJECT
 4. Google / Meta 生态域名   PROXY    ← google.com / gstatic / googleapis / fbcdn
-5. SR 直连白名单            DIRECT
-6. SR 代理列表              PROXY
-7. 订阅代理规则集           PROXY
-8. 国内分流                 DIRECT   ← cn-domain / cn-ip / GEOIP,CN
-9. MATCH                    PROXY
+5. IP 检测站                PROXY    ← ipinfo.io / ip.sb / iplocate.io / ping0.cc …
+6. SR 直连白名单            DIRECT
+7. SR 代理列表              PROXY
+8. 订阅代理规则集           PROXY
+9. 国内分流                 DIRECT   ← cn-domain / cn-ip / GEOIP,CN
+10. MATCH                   PROXY
 ```
 
-第 2 层和第 4 层必须分开：`google.com` 如果放在第 3 层之前，`adservice.google.com` 会先命中代理规则，去广告就废了；但 `gstatic.com` 必须排在第 8 层之前，否则会被国内规则抢成直连。
+第 2 层和第 4 层必须分开：`google.com` 如果放在第 3 层之前，`adservice.google.com` 会先命中代理规则，去广告就废了；但 `gstatic.com` 必须排在第 9 层之前，否则会被国内规则抢成直连。
+
+第 5 层单独列出来，是因为 IP 检测站（`ipinfo.io`、`ip.sb`、`iplocate.io` 等）如果落到 `GEOIP,CN` 兜底，一旦解析到国内 CDN 节点就会被判直连，检测结果永远显示本地运营商。注意**不要**把 `cloudflare.com` 加进去——`cdnjs.cloudflare.com` 是公共 JS CDN，会被误代理。
 
 `antigravity.google` 挂在 `.google` 顶级域下，**不是** `google.com` 的子域，必须单独声明——`antigravity-unleash.goog` 同理。
 
